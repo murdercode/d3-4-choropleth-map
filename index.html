@@ -1,8 +1,7 @@
 <html>
   <head>
-    <!-- Let's start this suicide -->
+<!-- Let's start this suicide -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.2.1/d3.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3.0.0/dist/d3-scale-chromatic.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
   </head>
@@ -10,7 +9,7 @@
     <main class="m-auto">
       <!-- Header -->
       <header class="grid grid-cols-2">
-        <h1 id="title" class="text-5xl font-bold">United States Educational Attainment</h1>
+        <h1 id="title" class="text-5xl font-bold">Video Game Sales</h1>
         <div id="description">
           <a href="https://github.com/murdercode/d3-4-choropleth-map/tree/master" target="_blank" class="text-blue-500 underline text-right">
           Repo here
@@ -19,6 +18,8 @@
       </header>
       <!-- Chart -->
       <div class="chart"></div>
+      <!-- Legend -->
+      <div id="legend" class="legend"></div>
       <!-- Tooltip -->
       <div id="tooltip" class="w-48 fixed bottom-0 right-0 p-3 m-3 bg-white rounded border-2 border-gray-600 hidden text-xs absolute"></div>
     </main>
@@ -26,13 +27,16 @@
   </html>
 
 <script>
-const width = 1200;
+const width = 1600;
 const height = 800;
 
-const EDUCATION =
-  "https://cdn.freecodecamp.org/testable-projects-fcc/data/choropleth_map/for_user_education.json";
-const COUNTIES =
-  "https://cdn.freecodecamp.org/testable-projects-fcc/data/choropleth_map/counties.json";
+/*const KICKSTARTER =
+  "https://cdn.freecodecamp.org/testable-projects-fcc/data/tree_map/kickstarter-funding-data.json";
+const FILM =
+  "https://cdn.freecodecamp.org/testable-projects-fcc/data/tree_map/movie-data.json";*/
+const GAMES =
+  "https://cdn.freecodecamp.org/testable-projects-fcc/data/tree_map/video-game-sales-data.json";
+
 
 const svg = d3
   .select(".chart")
@@ -40,86 +44,115 @@ const svg = d3
   .attr("width", width)
   .attr("height", height);
 
-const path = d3.geoPath();
 
-Promise.all([d3.json(EDUCATION), d3.json(COUNTIES)])
-.catch((error) => {
-  console.error(error);
-})
-.then(
-  (data) => {
-    const dataEdu = data[0];
-    const dataCounties = data[1];
-    // Define Variables
-    const minEdu = d3.min(dataEdu, (d) => d.bachelorsOrHigher);
-    const maxEdu = d3.max(dataEdu, (d) => d.bachelorsOrHigher);
-    console.log(dataCounties)
+d3.json(GAMES).then((data) => {
+  
     
-    // Legend
-    const xL = d3.scaleLinear().domain([minEdu, maxEdu]).rangeRound([600,800]);
-    const colorL = d3
-      .scaleThreshold()
-      .domain(d3.range(minEdu, maxEdu, (maxEdu - minEdu) / 8))
-      .range(d3.schemeOranges[9]);
-    
-    // Legend Container
-    const gL = svg
-      .append("g")
-      .attr("id", "legend")
-      .attr("class", "key")
-      .attr("transform", "translate(20,30)");
-    // Legend Data
-    gL.selectAll("rect")
-      .data(colorL.range().map((d) =>  colorL.invertExtent(d))).enter()
-      .append("rect")
-      .attr('x', d => xL(d[0]))
-      .attr("height", 10)
-      .attr('width', d=> d[0] && d[1] ? xL(d[1]) - xL(d[0]) : xL(null))
-      .attr("fill", d => colorL(d[0]));
-    // Legend Text
-      gL.call(
-        d3
-          .axisBottom(xL)
-          .tickSize(20)
-          .tickFormat(xL => Math.round(xL) + '%')
-          .tickValues(colorL.domain())
-      )
-    
-      // Map
-      const countiesObj = dataCounties.objects.counties;
-      svg.append('g')
-      .selectAll('path')
-      // Topojson: https://github.com/topojson/topojson-client/blob/master/README.md#feature 
-      .data(topojson.feature(dataCounties, countiesObj).features)
-      .enter()
-      .append('path')
-      .attr('class', 'county')
-      .attr('data-fips', d => d.id)
-      .attr('data-education', d => dataEdu.find(e => e.fips === d.id).bachelorsOrHigher)
-      .attr('county-name', d => dataEdu.find(e => e.fips === d.id).area_name)
-      .attr('fill', d => colorL(dataEdu.find(e => e.fips === d.id).bachelorsOrHigher))
-      .attr('stroke', '#f16913')
-      .attr('stroke-width', '0.5')
-      .attr('d', path)
-      .on("mouseover", handleMouseOver)
-      .on("mouseout", handleMouseOut);
-  }
-);
 
-/* Tooltip */
+    // Data to the layout cluster
+    const root = d3
+    .hierarchy(data)
+    .eachBefore(d => {
+      d.data.id = (d.parent ? d.parent.data.id + "." : "") + d.data.name;
+    })
+    .sum(d => d.value)
+    .sort((a , b) => b.height - a.height || b.value - a.value)
+    // Compute position of each element of the hierarchy
+    d3.treemap()
+    .size([width, height])
+    .padding(2)
+    (root)
+
+    // color = d3.scaleOrdinal(d3.schemeCategory10).domain(d3.range(0, 17));
+    // colors repo here: https://jnnnnn.blogspot.com/2017/02/distinct-colours-2.html
+    const color = d3.scaleOrdinal().domain(root).range([
+      "#3957ff", "#97b21e", "#c9080a", "#9c2b90", "#0b7b3e", "#0ba29d", "#c203c8", "#fd9b39", "#888593", "#906407", "#98ba7f", "#fe6794", "#10b0ff", "#ac7bff", "#b28742", "#964c63", "#1da49c", "#0ad811",
+  ])
+
+    // Add rectangles
+    svg.selectAll("rect")
+    .data(root.leaves())
+    .join("rect")
+    .attr('x', d => d.x0)
+    .attr('y', d => d.y0)
+    .attr('width', d => d.x1 - d.x0)
+    .attr('height', d => d.y1 - d.y0)
+    .style('stroke', '#000')
+    .style('fill', d => color(d.data.category))
+    .attr('class', 'tile')
+    .attr('data-name', d => d.data.name)
+    .attr('data-category', d => d.data.category)
+    .attr('data-value', d => d.data.value)
+    .on("mouseover", handleMouseOver)
+    .on("mouseout", handleMouseOut);
+
+    // Add text
+    svg.selectAll("text")
+    .data(root.leaves())
+    .join("text")
+    .attr('x', d => d.x0 + 5)
+    .attr('y', d => d.y0 + 20)
+    .attr('width', d => d.x1 - d.x0)
+    .attr('height', d => d.y1 - d.y0)
+    .attr('font-size', '11px')
+    .attr('fill', '#fff')
+    // Break text into multiple lines
+    //.text(d => d.data.name)
+    .html(function(d) {
+      const x = d3.select(this).attr('x');
+      const y = d3.select(this).attr('y');
+      let strings = d.data.name.split(' ');
+      return strings.join('<tspan x="' + x + '" dy="1em"> </tspan>');
+    })
+
+    // Create Legend SVG
+    const svgL = d3
+    .select(".legend")
+    .append("svg")
+    .attr("width", 1200)
+    .attr("height", 200);
+
+    // Add legend
+    svgL.selectAll("rect")
+    .data(root.children)
+    .join("rect")
+    .attr("x", (_, i) => i * 40)
+    .attr("y", (d, i) => 0)
+    .attr("width", 40)
+    .attr("height", 20)
+    .style("fill", (_, i) => color(i))
+    .attr("class", "legend-item");
+
+    console.log(root.children)
+
+    svgL.selectAll("text")
+    .data(root.children)
+    .join("text")
+    .attr("x", (_, i) => i * 40 + 5)
+    .attr("y", (d, i) => +15)
+    .attr("font-size", "11px")
+    .attr("fill", "white")
+    .text(d => d.data.name);
+
+    
+  })
+  .catch(err => console.log("Failed on", err));
+
+  /* Tooltip */
 function handleMouseOver(e, d) {
   const path = document.querySelector('[data-fips="' + d.id + '"]');
-  const countyName = path.getAttribute('county-name');
-  const dataEducation = path.getAttribute('data-education');
+  /*const countyName = path.getAttribute('county-name');
+  const dataEducation = path.getAttribute('data-education');*/
   d3.select(this)
-    .attr("opacity", "0.3")
+    .attr("opacity", "0.6")
     .attr("stroke-width", "2");
   const tooltip = document.getElementById("tooltip");
   tooltip.innerHTML = `
-    COUNTY - ${countyName}<br>
-    EDUCATION - ${dataEducation}%
+    NAME - ${d.data.name}<br>
+    CATEGORY - ${d.data.category}<br>
+    VALUE - ${d.data.value}
   `;
-  tooltip.setAttribute("data-education", dataEducation);
+  tooltip.setAttribute("data-value", d.data.value);
   tooltip.style.display = "table";
   tooltip.style.left = event.pageX + "px";
   tooltip.style.top = event.pageY + "px";
@@ -127,10 +160,11 @@ function handleMouseOver(e, d) {
 }
 
 function handleMouseOut() {
-  d3.select(this).attr("opacity", "1").attr("stroke-width", "0.5");
+  d3.select(this).attr("opacity", "1").attr("stroke-width", "1");
   const tooltip = document.getElementById("tooltip");
   tooltip.style.display = "none";
 }
+
 
 </script>
 
